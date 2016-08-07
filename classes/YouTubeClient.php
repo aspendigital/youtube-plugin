@@ -53,45 +53,26 @@ class YouTubeClient
                 'maxResults' => $maxItems);
             $results = $this->service->search->listSearch('id,snippet', $params);
 
-            // Parse the results
-            $videos = [];
-            foreach ($results['items'] as $item) {
+            return $this->transformResults($results, $thumbResolution);
+        }
+        catch (\Exception $e)
+        {
+            // Since we're relying on an outside source, lets not crash the page if we can't reach YouTube
+            traceLog($e);
+            return null;
+        }
+    }
 
-                if ($item->getId()->getKind() != 'youtube#video') {
-                    continue;
-                }
+    public function getPlaylist($playlistId, $maxItems = 12, $thumbResolution = 'medium') {
 
-                // Get the desired thumbnail resolution, YouTube's API doesn't support a proper high-res thumbnail
-                $thumbnails = $item->snippet->getThumbnails();
-                switch($thumbResolution)
-                {
-                    case 'full-resolution':
-                        $thumbnail = 'https://img.youtube.com/vi/' . $item->getId()->getVideoId() . '/maxresdefault.jpg';
-                        break;
-                    case 'default':
-                        $thumbnail = $thumbnails->getDefault()->url;
-                        break;
-                    case 'medium':
-                        $thumbnail = $thumbnails->getMedium()->url;
-                        break;
-                    case 'high':
-                        $thumbnail = $thumbnails->getHigh()->url;
-                        break;
-                    default:
-                        $thumbnail = $thumbnails->getDefault()->url;
-                        break;
-                }
+        try {
+            // Build the query and submit it
+            $params = array('playlistId' => $playlistId,
+                            'order' => 'date',
+                            'maxResults' => $maxItems);
+            $results = $this->service->playlistItems->listPlaylistItems('id,snippet', $params);
 
-                array_push($videos, array(
-                    'id'            => $item->getId()->getVideoId(),
-                    'link'          => 'https://youtube.com/watch?v=' . $item->getId()->getVideoId(),
-                    'title'         => $item->getSnippet()->getTitle(),
-                    'thumbnail'     => $thumbnail,
-                    'description'   => $item->getSnippet()->getDescription(),
-                    'published_at'  => Carbon::parse($item->getSnippet()->getPublishedAt())
-                ));
-            }
-            return $videos;
+            return $this->transformResults($results, $thumbResolution);
         }
         catch (\Exception $e)
         {
@@ -105,6 +86,49 @@ class YouTubeClient
     {
         // Components with the same channel and item count will use the same cached response
         return 'bluhex_ytvideos_' . $channelId . '_' . $maxItems . '_' . $thumbResolution;
+    }
+
+    protected function transformResults($results, $thumbResolution) {
+
+        // Parse the results
+        $videos = [];
+        foreach ($results['items'] as $item) {
+
+            if ($item->getId()->getKind() != 'youtube#video') {
+                continue;
+            }
+
+            // Get the desired thumbnail resolution, YouTube's API doesn't support a proper high-res thumbnail
+            $thumbnails = $item->snippet->getThumbnails();
+            switch($thumbResolution)
+            {
+                case 'full-resolution':
+                    $thumbnail = 'https://img.youtube.com/vi/' . $item->getId()->getVideoId() . '/maxresdefault.jpg';
+                    break;
+                case 'default':
+                    $thumbnail = $thumbnails->getDefault()->url;
+                    break;
+                case 'medium':
+                    $thumbnail = $thumbnails->getMedium()->url;
+                    break;
+                case 'high':
+                    $thumbnail = $thumbnails->getHigh()->url;
+                    break;
+                default:
+                    $thumbnail = $thumbnails->getDefault()->url;
+                    break;
+            }
+
+            array_push($videos, array(
+                'id'            => $item->getId()->getVideoId(),
+                'link'          => 'https://youtube.com/watch?v=' . $item->getId()->getVideoId(),
+                'title'         => $item->getSnippet()->getTitle(),
+                'thumbnail'     => $thumbnail,
+                'description'   => $item->getSnippet()->getDescription(),
+                'published_at'  => Carbon::parse($item->getSnippet()->getPublishedAt())
+            ));
+        }
+        return $videos;
     }
 
 }

@@ -1,8 +1,12 @@
 {
     "name": "bluhex/october-youtube",
     "description": "Gets the latest video from a YouTube Channel",
+    "repositories": {
+        "type": "vcs",
+        "url": "https://github.com/techroller/october-youtube.git"
+    },
     "require": {
         "php": ">=5.4.0",
-        "google/apiclient": "^2.0.0@RC"
+        "google/apiclient": "^2.0"
     }
 }

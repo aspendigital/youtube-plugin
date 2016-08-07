@@ -52,7 +52,8 @@ class Plugin extends PluginBase
     public function registerComponents()
     {
         return [
-            '\Bluhex\YouTube\Components\LatestVideos' => 'latestVideos'
+            '\Bluhex\YouTube\Components\Channel' => 'youtubeChannel',
+            '\Bluhex\YouTube\Components\PlayList' => 'youtubePlaylist'
         ];
     }
 
