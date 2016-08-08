@@ -1,15 +1,8 @@
-<?php
-/**
- * Created by PhpStorm.
- * User: Bryan
- * Date: 8/7/2016
- * Time: 1:47 PM
- */
+<?php namespace Bluhex\YouTube\Components;
 
-namespace Bluhex\YouTube\Components;
-
-
-use Cms\Classes\ComponentBase;
+use Cache;
+use Bluhex\YouTube\Models\Settings;
+use Bluhex\YouTube\Classes\YouTubeClient;
 
 class PlayList extends ListVideosComponentBase
 {
@@ -53,7 +46,7 @@ class PlayList extends ListVideosComponentBase
         return Cache::remember($cacheKey,
             Settings::get('cache_time'),
             function () use ($playlistId, $maxItems, $thumbResolution) {
-                return YouTubeClient::instance()->getPlaylist($playlistId, $maxItems, $thumbResolution);
+                 return YouTubeClient::instance()->getPlaylist($playlistId, $maxItems, $thumbResolution);
             });
     }
 }

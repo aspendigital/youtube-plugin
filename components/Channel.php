@@ -2,7 +2,6 @@
 
 use Cache;
 use Bluhex\YouTube\Models\Settings;
-use Cms\Classes\ComponentBase;
 use Bluhex\YouTube\Classes\YouTubeClient;
 
 /**
