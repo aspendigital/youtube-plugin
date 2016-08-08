@@ -1,5 +1,6 @@
 {
     "name": "bluhex/october-youtube",
+    "type": "october-plugin",
     "description": "Gets the latest video from a YouTube Channel",
     "repositories": {
         "type": "git",
@@ -7,6 +8,7 @@
     },
     "require": {
         "php": ">=5.4.0",
-        "google/apiclient": "^2.0"
+        "google/apiclient": "^2.0",
+        "composer/installers": "~1.0"
     }
 }
