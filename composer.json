@@ -1,17 +1,14 @@
 {
-  "name": "bluhex/october-youtube",
+  "name": "bluhex/youtube-plugin",
   "type": "october-plugin",
   "description": "Gets the latest video from a YouTube Channel",
   "repositories": {
     "type": "git",
-    "url": "https://github.com/techroller/october-youtube.git"
+    "url": "https://github.com/techroller/youtube-plugin.git"
   },
   "require": {
     "php": ">=5.4.0",
     "google/apiclient": "^2.0",
     "composer/installers": "~1.0"
-  },
-  "extra": {
-    "installer-name": "youtube"
   }
 }
