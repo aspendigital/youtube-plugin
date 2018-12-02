@@ -19,7 +19,7 @@ abstract class ListVideosComponentBase extends ComponentBase
         return [
             'max_items'        => [
                 'title'       => 'Max Items',
-                'description' => 'Maximum number of results',
+                'description' => 'Maximum number of results, acceptable values are 0 to 50.',
                 'default'     => '12'
             ],
             'thumb_resolution' => [
