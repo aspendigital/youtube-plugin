@@ -57,4 +57,16 @@ class Plugin extends PluginBase
         ];
     }
 
+    /**
+     * Register page snippets
+     *
+     * @return array
+     */
+    public function registerPageSnippets()
+    {
+        return [
+            '\Bluhex\YouTube\Components\Channel' => 'youtubeChannel',
+            '\Bluhex\YouTube\Components\PlayList' => 'youtubePlaylist'
+        ];
+    }
 }

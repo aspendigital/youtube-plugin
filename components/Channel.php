@@ -15,7 +15,7 @@ class Channel extends ListVideosComponentBase
     public function componentDetails()
     {
         return [
-            'name'        => 'Latest Videos',
+            'name'        => 'Youtube Channel Latest Videos',
             'description' => 'Display a list of latest YouTube videos for a channel'
         ];
     }

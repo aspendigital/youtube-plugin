@@ -13,7 +13,7 @@ class PlayList extends ListVideosComponentBase
     public function componentDetails()
     {
         return [
-            'name'        => 'Latest Videos',
+            'name'        => 'Youtube Playlist Latest Videos',
             'description' => 'Display a list of latest YouTube videos for a channel'
         ];
     }
