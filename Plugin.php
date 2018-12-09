@@ -18,8 +18,8 @@ class Plugin extends PluginBase
     public function pluginDetails()
     {
         return [
-            'name'        => 'Youtube Videos',
-            'description' => 'Provides a component to display YouTube videos',
+            'name'        => 'bluhex.youtube::lang.plugin.name',
+            'description' => 'bluhex.youtube::lang.plugin.description',
             'author'      => 'Bluhex Studios',
             'icon'        => 'icon-youtube-play',
             'homepage'    => 'https://github.com/bluhex/october-youtube'
@@ -27,7 +27,7 @@ class Plugin extends PluginBase
     }
 
     /**
-     * Register the settings listing
+     * Register the settings listing.
      *
      * @return array
      */
@@ -35,9 +35,9 @@ class Plugin extends PluginBase
     {
         return [
             'config' => [
-                'label'       => 'YouTube',
+                'label'       => 'bluhex.youtube::lang.settings.menu_label',
                 'icon'        => 'icon-youtube-play',
-                'description' => 'Configure YouTube API Key and Channel settings',
+                'description' => 'bluhex.youtube::lang.settings.menu_description',
                 'class'       => 'Bluhex\YouTube\Models\Settings',
                 'order'       => 600
             ]
@@ -45,7 +45,7 @@ class Plugin extends PluginBase
     }
 
     /**
-     * Register the component/s
+     * Register the components.
      *
      * @return array
      */
@@ -58,7 +58,7 @@ class Plugin extends PluginBase
     }
 
     /**
-     * Register page snippets
+     * Register page snippets.
      *
      * @return array
      */

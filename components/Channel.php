@@ -15,8 +15,8 @@ class Channel extends ListVideosComponentBase
     public function componentDetails()
     {
         return [
-            'name'        => 'Youtube Channel Latest Videos',
-            'description' => 'Display a list of latest YouTube videos for a channel'
+            'name'        => 'bluhex.youtube::lang.settings.channel_name',
+            'description' => 'bluhex.youtube::lang.settings.channel_description'
         ];
     }
 
@@ -24,8 +24,8 @@ class Channel extends ListVideosComponentBase
     {
         $properties = [
             'channel_id' => [
-                'title'       => 'Channel Id',
-                'description' => 'The YouTube Channel Id to query against. youtube.com/account_advanced',
+                'title'       => 'bluhex.youtube::lang.settings.channel_id',
+                'description' => 'bluhex.youtube::lang.settings.channel_id_description',
                 'type'        => 'string',
             ]
         ];

@@ -18,21 +18,20 @@ abstract class ListVideosComponentBase extends ComponentBase
     {
         return [
             'max_items'        => [
-                'title'       => 'Max Items',
-                'description' => 'Maximum number of results, acceptable values are 0 to 50.',
+                'title'       => 'bluhex.youtube::lang.settings.max_items',
+                'description' => 'bluhex.youtube::lang.settings.max_items_description',
                 'default'     => '12'
             ],
             'thumb_resolution' => [
-                'title'       => 'Thumbnail Size',
+                'title'       => 'bluhex.youtube::lang.settings.thumb_resolution',
                 'type'        => 'dropdown',
-                'description' => "Thumbnails may return cropped images as per the YouTube API.
-                                    However, 'Full Resolution' may fail to find an image, but won't be cropped.",
+                'description' => "bluhex.youtube::lang.settings.thumb_resolution_description",
                 'default'     => 'medium',
                 'options'     => [
-                    'full-resolution' => 'Full Resolution',
-                    'high'            => 'High',
-                    'medium'          => 'Medium',
-                    'default'         => 'Default'
+                    'full-resolution' => 'bluhex.youtube::lang.settings.thumb_resolution_option_full',
+                    'high'            => 'bluhex.youtube::lang.settings.thumb_resolution_option_high',
+                    'medium'          => 'bluhex.youtube::lang.settings.thumb_resolution_option_medium',
+                    'default'         => 'bluhex.youtube::lang.settings.thumb_resolution_option_default'
                 ]
             ]
         ];
