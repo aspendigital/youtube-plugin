@@ -45,7 +45,7 @@ class Channel extends ListVideosComponentBase
         return Cache::remember($cacheKey,
             Settings::get('cache_time'),
             function () use ($channelId, $maxItems, $thumbResolution) {
-                return YouTubeClient::instance()->getLatest($channelId, $maxItems, $thumbResolution);
+                return YouTubeClient::instance()->getYoutubeVideos('channel', $channelId, $maxItems, $thumbResolution);
             });
     }
 }

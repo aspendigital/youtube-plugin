@@ -46,7 +46,7 @@ class PlayList extends ListVideosComponentBase
         return Cache::remember($cacheKey,
             Settings::get('cache_time'),
             function () use ($playlistId, $maxItems, $thumbResolution) {
-                 return YouTubeClient::instance()->getPlaylist($playlistId, $maxItems, $thumbResolution);
+                return YouTubeClient::instance()->getYoutubeVideos('playlist', $playlistId, $maxItems, $thumbResolution);
             });
     }
 }
