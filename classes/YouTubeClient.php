@@ -142,7 +142,7 @@ class YouTubeClient
             $thumbnails = $snippet->getThumbnails();
             switch ($thumbResolution) {
                 case 'full-resolution':
-                    $thumbnail = 'https://img.youtube.com/vi/' . $snippet->getVideoId() . '/maxresdefault.jpg';
+                    $thumbnail = 'https://img.youtube.com/vi/' . $snippet->getResourceId()->getVideoId() . '/maxresdefault.jpg';
                     break;
                 case 'default':
                     $thumbnail = $thumbnails->getDefault()->url;
