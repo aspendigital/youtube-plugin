@@ -1,6 +1,5 @@
 <?php namespace Bluhex\YouTube\Classes;
 
-use Google_Client;
 use Bluhex\YouTube\Models\Settings;
 use Carbon\Carbon;
 use October\Rain\Exception\ApplicationException;
@@ -9,18 +8,15 @@ use October\Rain\Exception\ApplicationException;
  * YouTube API Client class
  *
  * @author Brendon Park
- *
  */
 class YouTubeClient
 {
-
     use \October\Rain\Support\Traits\Singleton;
 
     /**
-     * @var Google_Client Google API Client
+     * @var string
      */
-    public $client;
-    public $service;
+    public $apiKey;
 
     /**
      * Max number of items to fetch in the channel or playlist
@@ -49,18 +45,20 @@ class YouTubeClient
      */
     public $apiMaxResults = 50;
 
+    /**
+     * @var string
+     */
+    protected $apiBaseUrl = 'https://www.googleapis.com/youtube/v3/';
+
     protected function init()
     {
         $settings = Settings::instance();
 
-        if (!strlen($settings->api_key))
+        if (!strlen($settings->api_key)) {
             throw new ApplicationException('Google API access requires an API Key. Please add your key to Settings / Misc / YouTube');
+        }
 
-        // Create the Google Client
-        $client = new Google_Client();
-        $client->setDeveloperKey($settings->api_key);
-        $this->client = $client;
-        $this->service = new \Google_Service_YouTube($client);
+        $this->apiKey = $settings->api_key;
     }
 
     /**
@@ -74,96 +72,75 @@ class YouTubeClient
      */
     public function getYoutubeVideos($type, $id, $maxItems = 12, $thumbResolution = 'medium')
     {
-        $this->maxItems = $maxItems;
-        $this->isUnlimited = ($this->maxItems == 0) ? true : false;
+        $this->maxItems = (int) $maxItems;
+        $this->isUnlimited = ($this->maxItems === 0);
 
-        // Youtube limits the number of results to 50
-        if ($maxItems > $this->apiMaxResults || $this->isUnlimited) {
-            $maxItems = $this->apiMaxResults;
-        }
+        $requestMaxItems = $this->isUnlimited || $this->maxItems > $this->apiMaxResults
+            ? $this->apiMaxResults
+            : $this->maxItems;
 
-        // Setup shared query params
-        $params = array(
-            'maxResults' => $maxItems
-        );
+        $params = [
+            'maxResults' => $requestMaxItems,
+        ];
 
         try {
-            // Get YouTube Channel videos
-            if ($type == 'channel') {
-                $params['order'] = 'date';
-                $params['channelId'] = $id;
+            $youtubeResults = $this->fetchResults($type, $id, $params);
 
-                $youtubeResults = $this->service->search->listSearch('id,snippet', $params);
+            if ($youtubeResults === null) {
+                return null;
             }
 
-            // Get YouTube Playlist videos
-            if ($type == 'playlist') {
-                $params['playlistId'] = $id;
+            $results = $youtubeResults->items ?? [];
+            $nextPageToken = $youtubeResults->nextPageToken ?? null;
 
-                $youtubeResults = $this->service->playlistItems->listPlaylistItems('id,snippet', $params);
-            }
-
-            $results = $youtubeResults->items;
-
-            // Return a the nextPageToken string if there are additional results
-            $nextPageToken = $youtubeResults->nextPageToken;
-
-            // Get next page results
             if (($this->maxItems > $this->apiMaxResults || $this->isUnlimited) && $nextPageToken) {
                 if (!$this->isUnlimited) {
-                    $this->itemsRemaining = $this->maxItems - $maxItems;
+                    $this->itemsRemaining = $this->maxItems - $requestMaxItems;
                 }
 
-                $results = $this->getNextPageResults($type, $results, $params, $nextPageToken);
+                $results = $this->getNextPageResults($type, $id, $results, $params, $nextPageToken);
             }
 
-            // Transform results
-            if ($type == 'channel') {
+            if ($type === 'channel') {
                 return $this->transformChannelResults($results, $thumbResolution);
-            } elseif ($type == 'playlist') {
+            }
+
+            if ($type === 'playlist') {
                 return $this->transformPlaylistResults($results, $thumbResolution);
             }
         } catch (\Exception $e) {
             // Since we're relying on an outside source, lets not crash the page if we can't reach YouTube
             traceLog($e);
-
-            return null;
         }
+
+        return null;
     }
 
-    public function getNextPageResults($type, $results, $params, $nextPageToken)
+    public function getNextPageResults($type, $id, $results, $params, $nextPageToken)
     {
-        // Youtube limits the number of results to 50
         if ($this->itemsRemaining > $this->apiMaxResults || $this->isUnlimited) {
             $maxResults = $this->apiMaxResults;
         } else {
             $maxResults = $this->itemsRemaining;
         }
 
-        // Add params
         $params['pageToken'] = $nextPageToken;
         $params['maxResults'] = $maxResults;
 
-        // Keep track of the remaining items in case we need to fetch more results
         if (!$this->isUnlimited) {
-            $this->itemsRemaining = $this->itemsRemaining - $maxResults;
+            $this->itemsRemaining -= $maxResults;
         }
 
-        // Get next page results with the updated params
-        if ($type === 'channel') {
-            $nextPageResults = $this->service->search->listSearch('id,snippet', $params);
-        } elseif ($type === 'playlist') {
-            $nextPageResults = $this->service->playlistItems->listPlaylistItems('id,snippet', $params);
+        $nextPageResults = $this->fetchResults($type, $id, $params);
+
+        if ($nextPageResults === null) {
+            return $results;
         }
 
-        // Merge new results with the previous results
-        $results = array_merge($results, $nextPageResults['items']);
+        $results = array_merge($results, $nextPageResults->items ?? []);
 
-        // Get the next page if there are more results to fetch
-        if (($this->itemsRemaining > 0 || $this->isUnlimited) && $nextPageResults->nextPageToken) {
-            $nextPageToken = $nextPageResults->nextPageToken;
-
-            return $this->getNextPageResults($type, $results, $params, $nextPageToken);
+        if (($this->itemsRemaining > 0 || $this->isUnlimited) && !empty($nextPageResults->nextPageToken)) {
+            return $this->getNextPageResults($type, $id, $results, $params, $nextPageResults->nextPageToken);
         }
 
         return $results;
@@ -171,94 +148,211 @@ class YouTubeClient
 
     public function getLatestCacheKey($id, $maxItems, $thumbResolution)
     {
-        // Components with the same channel or playlist and item count will use the same cached response
         return 'bluhex_ytvideos_' . $id . '_' . $maxItems . '_' . $thumbResolution;
+    }
+
+    protected function fetchResults($type, $id, array $params)
+    {
+        if ($type === 'channel') {
+            $endpoint = 'search';
+            $params = array_merge($params, [
+                'part' => 'id,snippet',
+                'order' => 'date',
+                'type' => 'video',
+                'channelId' => $id,
+            ]);
+        } elseif ($type === 'playlist') {
+            $endpoint = 'playlistItems';
+            $params = array_merge($params, [
+                'part' => 'id,snippet',
+                'playlistId' => $id,
+            ]);
+        } else {
+            throw new \InvalidArgumentException('Unknown YouTube list type: ' . $type);
+        }
+
+        $params['key'] = $this->apiKey;
+
+        return $this->requestJson($this->apiBaseUrl . $endpoint, $params);
+    }
+
+    protected function requestJson($url, array $params)
+    {
+        $requestUrl = $url . '?' . http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+        $response = $this->httpGet($requestUrl);
+
+        if ($response === false || $response === null) {
+            return null;
+        }
+
+        $decoded = json_decode($response);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \RuntimeException('Unable to decode YouTube API response: ' . json_last_error_msg());
+        }
+
+        if (isset($decoded->error)) {
+            $message = isset($decoded->error->message) ? $decoded->error->message : 'Unknown YouTube API error';
+            throw new \RuntimeException($message);
+        }
+
+        return $decoded;
+    }
+
+    protected function httpGet($url)
+    {
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_TIMEOUT => 20,
+                CURLOPT_USERAGENT => 'GOED Bluhex YouTube Plugin',
+            ]);
+
+            $response = curl_exec($ch);
+
+            if ($response === false) {
+                $error = curl_error($ch);
+                curl_close($ch);
+
+                throw new \RuntimeException('YouTube request failed: ' . $error);
+            }
+
+            $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($status >= 400) {
+                throw new \RuntimeException('YouTube request failed with HTTP status ' . $status);
+            }
+
+            return $response;
+        }
+
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'timeout' => 20,
+                'header' => "User-Agent: GOED Bluhex YouTube Plugin\r\n",
+            ],
+        ]);
+
+        $response = @file_get_contents($url, false, $context);
+
+        if ($response === false) {
+            $error = error_get_last();
+            throw new \RuntimeException('YouTube request failed: ' . ($error['message'] ?? 'unknown error'));
+        }
+
+        return $response;
     }
 
     protected function transformChannelResults($items, $thumbResolution)
     {
-
-        // Parse the results
         $videos = [];
+
         foreach ($items as $item) {
-            $kind = $item->getId()->getKind();
-            if ($kind != 'youtube#video') {
+            $kind = $item->id->kind ?? null;
+            if ($kind !== 'youtube#video') {
                 continue;
             }
 
-            // Get the desired thumbnail resolution, YouTube's API doesn't support a proper high-res thumbnail
-            $thumbnails = $item->snippet->getThumbnails();
-            switch ($thumbResolution) {
-                case 'full-resolution':
-                    $thumbnail = 'https://img.youtube.com/vi/' . $item->getId()->getVideoId() . '/maxresdefault.jpg';
-                    break;
-                case 'default':
-                    $thumbnail = $thumbnails->getDefault()->url;
-                    break;
-                case 'medium':
-                    $thumbnail = $thumbnails->getMedium()->url;
-                    break;
-                case 'high':
-                    $thumbnail = $thumbnails->getHigh()->url;
-                    break;
-                default:
-                    $thumbnail = $thumbnails->getDefault()->url;
-                    break;
+            $videoId = $item->id->videoId ?? null;
+            if (!$videoId) {
+                continue;
             }
 
-            array_push($videos, array(
-                'id'           => $item->getId()->getVideoId(),
-                'link'         => 'https://youtube.com/watch?v=' . $item->getId()->getVideoId(),
-                'title'        => $item->getSnippet()->getTitle(),
-                'thumbnail'    => $thumbnail,
-                'description'  => $item->getSnippet()->getDescription(),
-                'published_at' => Carbon::parse($item->getSnippet()->getPublishedAt())
-            ));
+            $snippet = $item->snippet ?? null;
+            if (!$snippet) {
+                continue;
+            }
+
+            $thumbnail = $this->resolveThumbnailUrl($snippet->thumbnails ?? null, $thumbResolution, $videoId);
+
+            $videos[] = [
+                'id' => $videoId,
+                'link' => 'https://youtube.com/watch?v=' . $videoId,
+                'title' => $snippet->title ?? '',
+                'thumbnail' => $thumbnail,
+                'description' => $snippet->description ?? '',
+                'published_at' => Carbon::parse($snippet->publishedAt ?? 'now'),
+            ];
         }
+
         return $videos;
     }
 
     protected function transformPlaylistResults($items, $thumbResolution)
     {
-        // Parse the results
         $videos = [];
+
         foreach ($items as $item) {
-            $kind = $item->getKind();
-            if ($kind != 'youtube#playlistItem') {
+            $kind = $item->kind ?? null;
+            if ($kind !== 'youtube#playlistItem') {
                 continue;
             }
 
-            // Get the desired thumbnail resolution, YouTube's API doesn't support a proper high-res thumbnail
-            $snippet = $item->getSnippet();
-            $thumbnails = $snippet->getThumbnails();
-            switch ($thumbResolution) {
-                case 'full-resolution':
-                    $thumbnail = 'https://img.youtube.com/vi/' . $snippet->getResourceId()->getVideoId() . '/maxresdefault.jpg';
-                    break;
-                case 'default':
-                    $thumbnail = $thumbnails->getDefault()->url;
-                    break;
-                case 'medium':
-                    $thumbnail = $thumbnails->getMedium()->url;
-                    break;
-                case 'high':
-                    $thumbnail = $thumbnails->getHigh()->url;
-                    break;
-                default:
-                    $thumbnail = $thumbnails->getDefault()->url;
-                    break;
+            $snippet = $item->snippet ?? null;
+            if (!$snippet) {
+                continue;
             }
 
-            array_push($videos, array(
-                'id'           => $snippet->getResourceId()->getVideoId(),
-                'link'         => 'https://youtube.com/watch?v=' . $snippet->getResourceId()->getVideoId(),
-                'title'        => $snippet->getTitle(),
-                'thumbnail'    => $thumbnail,
-                'description'  => $snippet->getDescription(),
-                'published_at' => Carbon::parse($snippet->getPublishedAt())
-            ));
+            $videoId = $snippet->resourceId->videoId ?? null;
+            if (!$videoId) {
+                continue;
+            }
+
+            $title = trim((string) ($snippet->title ?? ''));
+            if ($title === '' || strcasecmp($title, 'Private video') === 0 || strcasecmp($title, 'Deleted video') === 0) {
+                continue;
+            }
+
+            $thumbnail = $this->resolveThumbnailUrl($snippet->thumbnails ?? null, $thumbResolution, $videoId);
+
+            $videos[] = [
+                'id' => $videoId,
+                'link' => 'https://youtube.com/watch?v=' . $videoId,
+                'title' => $title,
+                'thumbnail' => $thumbnail,
+                'description' => $snippet->description ?? '',
+                'published_at' => Carbon::parse($snippet->publishedAt ?? 'now'),
+            ];
         }
 
         return $videos;
+    }
+
+    protected function resolveThumbnailUrl($thumbnails, $thumbResolution, $videoId)
+    {
+        if ($thumbResolution === 'full-resolution') {
+            return 'https://img.youtube.com/vi/' . $videoId . '/maxresdefault.jpg';
+        }
+
+        if (!$thumbnails) {
+            return 'https://img.youtube.com/vi/' . $videoId . '/mqdefault.jpg';
+        }
+
+        $sources = [
+            'default' => $thumbnails->default ?? null,
+            'medium' => $thumbnails->medium ?? null,
+            'high' => $thumbnails->high ?? null,
+        ];
+
+        $preferredOrder = [
+            'default' => ['default', 'medium', 'high'],
+            'medium' => ['medium', 'high', 'default'],
+            'high' => ['high', 'medium', 'default'],
+        ];
+
+        $order = $preferredOrder[$thumbResolution] ?? $preferredOrder['default'];
+
+        foreach ($order as $size) {
+            if (!empty($sources[$size]->url)) {
+                return $sources[$size]->url;
+            }
+        }
+
+        return 'https://img.youtube.com/vi/' . $videoId . '/mqdefault.jpg';
     }
 }
